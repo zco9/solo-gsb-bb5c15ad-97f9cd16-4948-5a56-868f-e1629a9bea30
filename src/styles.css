@@ -1203,6 +1203,157 @@ body {
   flex-wrap: wrap;
 }
 
+/* ---------- 镜头切点吸附 ---------- */
+.snap-input {
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.snap-input-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.snap-input-head strong {
+  font-size: 13.5px;
+}
+
+.snap-drop.drag .snap-paste {
+  border-color: var(--accent);
+}
+
+.snap-paste {
+  width: 100%;
+  min-height: 96px;
+  max-height: 220px;
+}
+
+.snap-parse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.snap-issue {
+  color: var(--amber);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 360px;
+}
+
+.snap-panel .wrap-settings input[type='number'] {
+  width: 76px;
+}
+
+.snap-table-wrap {
+  overflow-x: auto;
+}
+
+.snap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.snap-table th,
+.snap-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+.snap-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.snap-table .mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.snap-row.applied {
+  background: rgba(52, 211, 153, 0.07);
+}
+
+.snap-row.ready .snap-new {
+  color: var(--green);
+}
+
+.snap-row.cross {
+  background: rgba(248, 113, 113, 0.05);
+}
+
+.snap-text {
+  min-width: 120px;
+  max-width: 260px;
+}
+
+.snap-text span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.snap-cuts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.snap-bound {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.snap-bound-tag {
+  color: var(--muted);
+  font-size: 10.5px;
+  width: 14px;
+}
+
+.snap-cross {
+  margin-top: 1px;
+}
+
+.dim-text {
+  color: var(--muted);
+}
+
+.snap-reason {
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.snap-why {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.snap-actions {
+  white-space: nowrap;
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 1100px) {
   .layout {

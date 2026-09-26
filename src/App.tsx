@@ -24,6 +24,13 @@ import {
 } from './lib/pace';
 import { SAMPLE_A, SAMPLE_B } from './lib/samples';
 import { parseSrt, serializeSrt, type Cue } from './lib/srt';
+import {
+  analyzeSnaps,
+  applySnaps,
+  DEFAULT_SNAP_OPTIONS,
+  parseCutList,
+  type SnapOptions,
+} from './lib/snap';
 import { applyScrollChains, findScrollChains, type ScrollOptions } from './lib/scroll';
 import { smartWrap, type WrapOptions } from './lib/wrap';
 import { CalibratePanel } from './components/CalibratePanel';
@@ -32,6 +39,7 @@ import { ExportPanel } from './components/ExportPanel';
 import { GroupCard } from './components/GroupCard';
 import { ImportPanel } from './components/ImportPanel';
 import { PacePanel } from './components/PacePanel';
+import { SnapPanel } from './components/SnapPanel';
 import { StatsBar } from './components/StatsBar';
 import { Toolbar, type Filter } from './components/Toolbar';
 import { WrapPanel } from './components/WrapPanel';
@@ -91,7 +99,7 @@ export default function App() {
   const cuesBEff: Cue[] = groups ? (cuesBUsed ?? cuesB) : cuesB;
 
   // 智能断行：视图切换、参数与逐条应用状态（key 为 groupIndex）
-  const [view, setView] = useState<'groups' | 'dedupe' | 'wrap' | 'pace'>('groups');
+  const [view, setView] = useState<'groups' | 'dedupe' | 'wrap' | 'pace' | 'snap'>('groups');
   const [wrapOpts, setWrapOpts] = useState<WrapOptions>({
     maxWidth: 42,
     maxLines: 2,
@@ -110,6 +118,11 @@ export default function App() {
   const [paceOpts, setPaceOpts] = useState<PaceOptions>(DEFAULT_PACE_OPTIONS);
   const [paceAccepted, setPaceAccepted] = useState<ReadonlySet<string>>(new Set());
 
+  // 镜头切点吸附：参数（吸附阈值、最短时长）与逐条采纳状态（key 为条目 key；
+  // 切点文本在 SnapPanel 内维护，切点/参数/上游变化时旧 key 自动失效）
+  const [snapOpts, setSnapOpts] = useState<SnapOptions>(DEFAULT_SNAP_OPTIONS);
+  const [snapAccepted, setSnapAccepted] = useState<ReadonlySet<string>>(new Set());
+
   /** 用指定的 B 时间轴执行顺序对齐，并进入工作区。 */
   const runAlign = (b: Cue[]) => {
     setAligning(true);
@@ -126,6 +139,8 @@ export default function App() {
       setWrapApplied(new Set());
       setScrollAccepted(new Set());
       setPaceAccepted(new Set());
+      setSnapAccepted(new Set());
+      setSnapCutText('');
       setPhase('workspace');
     }, 30);
   };
@@ -226,6 +241,8 @@ export default function App() {
     setWrapApplied(new Set());
     setScrollAccepted(new Set());
     setPaceAccepted(new Set());
+    setSnapAccepted(new Set());
+    setSnapCutText('');
     setPhase('import');
   };
 
@@ -239,6 +256,8 @@ export default function App() {
     setWrapApplied(new Set());
     setScrollAccepted(new Set());
     setPaceAccepted(new Set());
+    setSnapAccepted(new Set());
+    setSnapCutText('');
     setPhase('calibrate');
   };
 
@@ -423,9 +442,51 @@ export default function App() {
     });
   const restoreAllPace = () => setPaceAccepted(new Set());
 
+  // 镜头切点吸附：在已采纳消重、断行与阅读节奏的当前结果上，对距切点不
+  // 超过阈值的边界做全局 DP 吸附；已采纳条目只内收替换时间，进入预览与导出
+  const [snapCutText, setSnapCutText] = useState('');
+  const snapCuts = useMemo(() => parseCutList(snapCutText).cuts, [snapCutText]);
+  const snapAnalysis = useMemo(
+    () => analyzeSnaps(pacedCues, snapCuts, snapOpts),
+    [pacedCues, snapCuts, snapOpts],
+  );
+  const snappedCues = useMemo(
+    () => applySnaps(pacedCues, snapAnalysis.items, snapAccepted),
+    [pacedCues, snapAnalysis, snapAccepted],
+  );
+  const snapStats = useMemo(() => {
+    let applied = 0;
+    for (const it of snapAnalysis.items) {
+      if (it.changed && snapAccepted.has(it.key)) applied++;
+    }
+    return {
+      cuts: snapAnalysis.cutCount,
+      crossingBefore: snapAnalysis.crossingBefore,
+      crossing: snapAnalysis.crossingCues,
+      changed: snapAnalysis.changedCues,
+      applied,
+      ok: snapAnalysis.ok,
+    };
+  }, [snapAnalysis, snapAccepted]);
+
+  const acceptSnap = (key: string) => setSnapAccepted((prev) => new Set(prev).add(key));
+  const restoreSnap = (key: string) =>
+    setSnapAccepted((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  const acceptAllSnaps = (keys: string[]) =>
+    setSnapAccepted((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.add(k));
+      return next;
+    });
+  const restoreAllSnaps = () => setSnapAccepted(new Set());
+
   const finalCues = useMemo(
-    () => (autoFix ? autoFixTimes(pacedCues) : pacedCues),
-    [pacedCues, autoFix],
+    () => (autoFix ? autoFixTimes(snappedCues) : snappedCues),
+    [snappedCues, autoFix],
   );
   const issues = useMemo(
     () =>
@@ -598,6 +659,13 @@ export default function App() {
                     阅读节奏
                     <span className="tab-count">{paceStats.violating}</span>
                   </button>
+                  <button
+                    className={`tab ${view === 'snap' ? 'active' : ''}`}
+                    onClick={() => setView('snap')}
+                  >
+                    镜头切点吸附
+                    <span className="tab-count">{snapStats.crossing}</span>
+                  </button>
                 </div>
                 {view === 'groups' ? (
                   <>
@@ -659,7 +727,7 @@ export default function App() {
                     onApplyAll={applyAllWrap}
                     onRestoreAll={restoreAllWrap}
                   />
-                ) : (
+                ) : view === 'pace' ? (
                   <PacePanel
                     cues={wrappedCues}
                     analysis={paceAnalysis}
@@ -670,6 +738,19 @@ export default function App() {
                     onRestore={restorePace}
                     onAcceptAll={acceptAllPace}
                     onRestoreAll={restoreAllPace}
+                  />
+                ) : (
+                  <SnapPanel
+                    cues={pacedCues}
+                    cutText={snapCutText}
+                    onCutText={setSnapCutText}
+                    options={snapOpts}
+                    onOptions={setSnapOpts}
+                    accepted={snapAccepted}
+                    onAccept={acceptSnap}
+                    onRestore={restoreSnap}
+                    onAcceptAll={acceptAllSnaps}
+                    onRestoreAll={restoreAllSnaps}
                   />
                 )}
               </main>
@@ -690,6 +771,12 @@ export default function App() {
                 paceSegments={paceStats.segments}
                 paceApplied={paceStats.applied}
                 paceUnsolvable={paceStats.unsolvable}
+                snapCuts={snapStats.cuts}
+                snapCrossingBefore={snapStats.crossingBefore}
+                snapCrossing={snapStats.crossing}
+                snapChanged={snapStats.changed}
+                snapApplied={snapStats.applied}
+                snapOk={snapStats.ok}
                 preview={preview}
                 canExport={canExport}
                 onExport={() => download('merged.srt', '\uFEFF' + serializeSrt(finalCues))}

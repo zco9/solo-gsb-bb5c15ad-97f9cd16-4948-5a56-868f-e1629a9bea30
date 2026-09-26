@@ -24,6 +24,18 @@ interface ExportPanelProps {
   paceApplied: number;
   /** 无解（保持原时间）的区段数 */
   paceUnsolvable: number;
+  /** 镜头切点总数（0 表示未使用吸附） */
+  snapCuts: number;
+  /** 吸附前跨镜头字幕数 */
+  snapCrossingBefore: number;
+  /** 吸附后仍跨镜头的字幕数 */
+  snapCrossing: number;
+  /** 吸附方案中改动的条数 */
+  snapChanged: number;
+  /** 已采纳的吸附条数 */
+  snapApplied: number;
+  /** 吸附方案是否可行 */
+  snapOk: boolean;
   preview: string;
   canExport: boolean;
   onExport(): void;
@@ -75,6 +87,35 @@ export function ExportPanel(props: ExportPanelProps) {
           {props.paceSegments > 0 && props.paceApplied === 0 && props.paceUnsolvable === 0 && (
             <em>（尚未采纳，预览为原时间）</em>
           )}
+        </li>
+        <li
+          className={
+            props.snapCuts === 0
+              ? 'pass'
+              : !props.snapOk
+                ? 'warn'
+                : props.snapCrossing > 0
+                  ? 'warn'
+                  : props.snapApplied > 0
+                    ? 'pass'
+                    : 'warn'
+          }
+        >
+          <span className="check-ic">
+            {props.snapCuts === 0 || (props.snapOk && props.snapCrossing === 0) ? '✓' : '!'}
+          </span>
+          镜头切点吸附：
+          {props.snapCuts === 0
+            ? '未提供切点'
+            : `跨镜头 ${props.snapCrossingBefore} → ${props.snapCrossing} 条 · 已采纳 ${props.snapApplied}/${props.snapChanged}`}
+          {props.snapCuts > 0 && !props.snapOk && <em>（当前参数下吸附不可解，保持原时间）</em>}
+          {props.snapCuts > 0 && props.snapOk && props.snapCrossing > 0 && (
+            <em>（仍有 {props.snapCrossing} 条跨镜头）</em>
+          )}
+          {props.snapCuts > 0 &&
+            props.snapOk &&
+            props.snapCrossing === 0 &&
+            props.snapApplied === 0 && <em>（尚未采纳，预览为原时间）</em>}
         </li>
       </ul>
 
